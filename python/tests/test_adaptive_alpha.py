@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from diff_calibrate.adaptive_alpha import apply_adaptive_alpha, calibrate_alpha, predict_alpha
-from diff_calibrate.downsample import run_downsampling
+from diffCalibrate.adaptive_alpha import apply_adaptive_alpha, calibrate_alpha, predict_alpha
+from diffCalibrate.downsample import run_downsampling
 
 
 def test_calibrate_alpha_requires_permuted_arm(sim):

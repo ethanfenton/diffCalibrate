@@ -1,4 +1,4 @@
-"""diff_calibrate: sample-size-adjusted differential expression burden for single-cell data."""
+"""diffCalibrate: sample-size-adjusted differential expression burden for single-cell data."""
 
 from .adaptive_alpha import apply_adaptive_alpha, calibrate_alpha, predict_alpha
 from .burden import BurdenResult, calculate_burden

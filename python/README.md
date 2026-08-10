@@ -1,10 +1,10 @@
-# diff_calibrate (Python)
+# diffCalibrate (Python)
 
-Python port of the `diffcalibrate` R package: sample-size-adjusted
+Python port of the `diffCalibrate` R package: sample-size-adjusted
 differential expression (DE) "burden" for single-cell data. Cell types with
 more cells tend to show more significant DE genes for reasons of statistical
 power alone, which biases naive DEG counts toward larger cell types.
-`diff_calibrate` downsamples each cell type across a range of cell counts,
+`diffCalibrate` downsamples each cell type across a range of cell counts,
 refits DE at each, and models DEG count as a function of cell count — so you
 can ask "how many DEGs would this cell type show if it had as many cells as
 a typical cell type in this dataset," rather than comparing raw DEG counts
@@ -21,17 +21,17 @@ language/library reasons.
 
 ```bash
 # from a local checkout
-pip install -e "path/to/diff_calibrate/python"
+pip install -e "path/to/diffCalibrate/python"
 
 # optional DE backends
-pip install -e "path/to/diff_calibrate/python[edger]"    # requires rpy2 + R + edgeR
-pip install -e "path/to/diff_calibrate/python[deseq2]"   # requires pydeseq2
+pip install -e "path/to/diffCalibrate/python[edger]"    # requires rpy2 + R + edgeR
+pip install -e "path/to/diffCalibrate/python[deseq2]"   # requires pydeseq2
 ```
 
 ## Usage
 
 ```python
-import diff_calibrate
+import diffCalibrate
 
 # data: dict, one entry per cell type, each
 #   {"counts": <genes x cells matrix>, "group": <two-level treatment vector>}
@@ -41,7 +41,7 @@ data = {
     "microglia":  {"counts": microglia_counts, "group": microglia_group},
 }
 
-res = diff_calibrate.calculate_burden(
+res = diffCalibrate.calculate_burden(
     data,
     de_fun="wilcoxon",       # or "edger", "deseq2", or your own function
     model_type="auto",       # "auto" | "spline" | "linear"
@@ -57,7 +57,7 @@ res.concordance        # per-cell-type concordance of downsampled vs full DE cal
 ```
 
 `de_fun` can be any callable following the contract in
-`diff_calibrate.de_wrappers`: `f(counts, group, **kwargs) ->
+`diffCalibrate.de_wrappers`: `f(counts, group, **kwargs) ->
 pd.DataFrame(gene, pval, padj, logFC)`, so any DE method (not just the three
 built-ins) can be plugged in.
 
@@ -76,7 +76,7 @@ built-ins) can be plugged in.
   `family=Poisson(link=Identity())` and `scale="X2"` (Pearson-dispersion
   scaling), which is the standard way to get quasi-Poisson behavior in
   `statsmodels`. Nested-model comparisons use a quasi-F test
-  (`diff_calibrate.model_fit.quasi_f_test`), the same statistic family as
+  (`diffCalibrate.model_fit.quasi_f_test`), the same statistic family as
   R's `anova(..., test="F")`.
 - **edgeR/DESeq2 backends.** `de_edger()` calls out to R via `rpy2` (needs a
   local R + Bioconductor edgeR install); `de_deseq2()` uses the `pydeseq2`

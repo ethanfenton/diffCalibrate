@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from diff_calibrate.de_wrappers import de_wilcoxon, resolve_de_fun
+from diffCalibrate.de_wrappers import de_wilcoxon, resolve_de_fun
 
 
 def test_de_wilcoxon_finds_de_genes(sim):

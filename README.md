@@ -1,9 +1,9 @@
-# diff_calibrate
+# diffCalibrate
 
 Sample-size-adjusted differential expression (DE) "burden" for single-cell
 data. Cell types with more cells tend to show more significant DE genes for
 reasons of statistical power alone, which biases naive DEG counts toward
-larger cell types. `diff_calibrate` downsamples each cell type across a
+larger cell types. `diffCalibrate` downsamples each cell type across a
 range of cell counts, refits DE at each, and models DEG count as a function
 of cell count — so you can ask "how many DEGs would this cell type show if
 it had as many cells as a typical cell type in this dataset," rather than
@@ -13,22 +13,21 @@ See [`docs/DESIGN.md`](docs/DESIGN.md) for the full methodology, rationale,
 and known caveats (in particular: extrapolation risk when a cell type is
 much smaller than the reference cell count).
 
-The R package is named `diffcalibrate` (R package names can't contain
-underscores). A Python port with the same API and defaults, named
-`diff_calibrate`, is available in [`python/`](python/README.md).
+A Python port with the same API and defaults, also named `diffCalibrate`,
+is available in [`python/`](python/README.md).
 
 ## Install
 
 ```r
 # from a local checkout
 install.packages("devtools")
-devtools::install("path/to/diff_calibrate")
+devtools::install("path/to/diffCalibrate")
 ```
 
 ## Usage
 
 ```r
-library(diffcalibrate)
+library(diffCalibrate)
 
 # data: named list, one element per cell type, each
 #   list(counts = <genes x cells matrix>, group = <two-level treatment vector>)

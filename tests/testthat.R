@@ -1,4 +1,4 @@
 library(testthat)
-library(diffcalibrate)
+library(diffCalibrate)
 
-test_check("diffcalibrate")
+test_check("diffCalibrate")
