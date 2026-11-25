@@ -15,21 +15,23 @@
 #'   user function following the [de_backends] contract.
 #' @param model_type One of `"auto"`, `"spline"`, `"linear"` — see
 #'   [fit_deg_model()].
-#' @param pooling One of `"pooled"` (default: a single DEGs~n curve fit
-#'   across all cell types, on the assumption that cell count affects
-#'   detected DEG count similarly regardless of cell type), `"auto"` (run
-#'   [test_pooling()] and use its LRT-based recommendation instead), or
-#'   force `"shared_shape"`/`"stratified"` (per-cell-type curves). `"auto"`
-#'   and `"stratified"` trade the pooled default's stability for
-#'   flexibility: each cell type's own model is fit to far fewer
-#'   downsampling replicates than the pooled fit, so it is noisier, and
-#'   `"auto"`'s per-dataset LRT can itself false-positive into
-#'   `shared_shape`/`stratified` on a single noisy comparison (observed
-#'   during development, see `docs/DESIGN.md`) — which is why pooling is
-#'   not auto-selected by default. [test_pooling()]'s result is always
-#'   computed and returned as `pooling_test` regardless of this argument, so
-#'   you can inspect what `"auto"` *would* have chosen without switching to
-#'   it.
+#' @param pooling One of `"shared_shape"` (default: a single DEGs~n curve
+#'   *shape* fit across all cell types, plus a per-cell-type offset, i.e.
+#'   `degs ~ s(n) + cell_type`), `"auto"` (run [test_pooling()] and use its
+#'   LRT-based recommendation), `"stratified"` (fully separate curve per
+#'   cell type), or `"pooled"` (`degs ~ s(n)` with no cell-type term).
+#'   `"shared_shape"` keeps the stability of pooling every cell type's
+#'   downsampling replicates into one curve while still letting cell types
+#'   differ in level, which is what burden is meant to compare.
+#'   `"pooled"` has no cell-type term, so it returns the *same* burden for
+#'   every cell type by construction; it is kept only for inspecting the
+#'   shared curve and emits a warning. Under `"auto"`, a `"pooled"`
+#'   recommendation (no significant cell-type offset) is predicted with the
+#'   `shared_shape` model instead, so burden stays cell-type-specific;
+#'   `pooling_used` records the model actually used. `"stratified"` fits
+#'   each cell type to far fewer replicates, so it is noisier.
+#'   [test_pooling()]'s result is always computed and returned as
+#'   `pooling_test` regardless of this argument.
 #' @param adaptive_alpha If `TRUE` (default), calibrate alpha(n) per cell
 #'   type via [calibrate_alpha()] (empirical FDR calibration against
 #'   label-permuted null runs) and use it in place of `alpha` when counting
@@ -66,7 +68,7 @@
 #' @export
 calculate_burden <- function(data, de_fun,
                               model_type = c("auto", "spline", "linear"),
-                              pooling = c("pooled", "auto", "shared_shape", "stratified"),
+                              pooling = c("shared_shape", "auto", "stratified", "pooled"),
                               adaptive_alpha = TRUE,
                               alpha = 0.05,
                               reference_n = NULL,
@@ -124,6 +126,19 @@ calculate_burden <- function(data, de_fun,
   pooling_test <- test_pooling(combined$n, combined$degs, combined$cell_type,
                                 weights = combined$weight, sig_level = sig_level)
   pooling_used <- if (pooling == "auto") pooling_test$recommendation else pooling
+  if (pooling == "auto" && pooling_used == "pooled") {
+    # A model with no cell-type term predicts the same burden for every cell
+    # type; use the shared-shape model so burden stays cell-type-specific.
+    pooling_used <- "shared_shape"
+  }
+  if (pooling_used == "pooled" && length(cell_types) > 1) {
+    warning(
+      "pooling = \"pooled\" fits no cell-type term, so burden is identical ",
+      "for every cell type by construction. Use pooling = \"shared_shape\" ",
+      "(default) to compare cell types.",
+      call. = FALSE
+    )
+  }
 
   if (is.null(reference_n)) {
     n_full_per_ct <- vapply(downsampling, function(d) max(d$downsampled$n), numeric(1))

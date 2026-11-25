@@ -41,7 +41,7 @@ res <- calculate_burden(
   data,
   de_fun = "wilcoxon",       # or "edger", "deseq2", or your own function
   model_type = "auto",       # "auto" | "spline" | "linear"
-  pooling = "pooled",        # "pooled" | "auto" | "shared_shape" | "stratified"
+  pooling = "shared_shape",  # "shared_shape" | "auto" | "stratified" | "pooled"
   adaptive_alpha = TRUE,     # empirical FDR-calibrated alpha(n) per cell type
   alpha = 0.05
 )

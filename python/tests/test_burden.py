@@ -21,11 +21,22 @@ def _run(data, **kwargs):
     return calculate_burden(data, **defaults)
 
 
-def test_default_pooling_is_pooled(data):
+def test_default_pooling_is_shared_shape(data):
     res = _run(data)
-    assert res.pooling_used == "pooled"
-    # pooled model -> identical burden across cell types at the same reference_n
+    assert res.pooling_used == "shared_shape"
+    # shared curve shape + per-cell-type offset -> burden differs by cell type
+    assert res.burden["burden"].nunique() == len(data)
+
+
+def test_forced_pooled_warns_identical_burden(data):
+    with pytest.warns(UserWarning, match="identical for every cell type"):
+        res = _run(data, pooling="pooled")
     assert res.burden["burden"].nunique() == 1
+
+
+def test_auto_never_returns_pooled_prediction(data):
+    res = _run(data, pooling="auto")
+    assert res.pooling_used in ("shared_shape", "stratified")
 
 
 def test_burden_output_columns(data):
@@ -60,8 +71,8 @@ def test_extrapolation_flag_and_warning(data):
 
 
 def test_pooling_test_always_computed_even_when_pooled_forced(data):
-    res = _run(data, pooling="pooled")
-    assert res.pooling_used == "pooled"
+    res = _run(data, pooling="stratified")
+    assert res.pooling_used == "stratified"
     assert res.pooling_test["recommendation"] in ("pooled", "shared_shape", "stratified")
 
 

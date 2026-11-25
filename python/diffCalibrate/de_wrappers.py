@@ -147,9 +147,11 @@ def de_edger(counts, group, **kwargs) -> pd.DataFrame:
     kept_names = [g for g, k in zip(gene_names, keep) if k]
     out = pd.DataFrame({"gene": gene_names, "pval": 1.0, "padj": 1.0, "logFC": 0.0})
     idx = out.set_index("gene").index.get_indexer(kept_names)
-    out.loc[idx, "pval"] = tab["PValue"].to_numpy()
+    pval_kept = tab["PValue"].to_numpy()
+    out.loc[idx, "pval"] = pval_kept
     out.loc[idx, "logFC"] = tab["logFC"].to_numpy()
-    out["padj"] = _bh_adjust(out["pval"].to_numpy())
+    # BH over the tested (non-all-zero) genes only; dropped genes keep padj = 1.
+    out.loc[idx, "padj"] = _bh_adjust(pval_kept)
     return out
 
 
@@ -188,9 +190,12 @@ def de_deseq2(counts, group, **kwargs) -> pd.DataFrame:
 
     out = pd.DataFrame({"gene": gene_names, "pval": 1.0, "padj": 1.0, "logFC": 0.0})
     idx = out.set_index("gene").index.get_indexer(kept_names)
-    out.loc[idx, "pval"] = res["pvalue"].fillna(1.0).to_numpy()
+    res = res.reindex(kept_names)
+    pval_kept = res["pvalue"].fillna(1.0).to_numpy()
+    out.loc[idx, "pval"] = pval_kept
     out.loc[idx, "logFC"] = res["log2FoldChange"].fillna(0.0).to_numpy()
-    out["padj"] = _bh_adjust(out["pval"].to_numpy())
+    # BH over the tested (non-all-zero) genes only; dropped genes keep padj = 1.
+    out.loc[idx, "padj"] = _bh_adjust(pval_kept)
     return out
 
 

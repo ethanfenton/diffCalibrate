@@ -13,7 +13,7 @@ from .downsample import (
 )
 from .model_fit import BurdenModel, fit_deg_model, predict_degs, quasi_f_test, test_nonlinearity, test_pooling
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "calculate_burden",

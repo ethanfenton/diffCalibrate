@@ -55,7 +55,7 @@ def calculate_burden(
     data: dict,
     de_fun: Union[str, callable],
     model_type: str = "auto",
-    pooling: str = "pooled",
+    pooling: str = "shared_shape",
     adaptive_alpha: bool = True,
     alpha: float = 0.05,
     reference_n: Optional[float] = None,
@@ -85,18 +85,20 @@ def calculate_burden(
     de_fun : DE backend: "wilcoxon", "edger", "deseq2", or a user function
         following the de_wrappers contract.
     model_type : "auto", "spline", or "linear" -- see fit_deg_model().
-    pooling : "pooled" (default: a single DEGs~n curve fit across all cell
-        types, on the assumption that cell count affects detected DEG count
-        similarly regardless of cell type), "auto" (run test_pooling() and
-        use its recommendation instead), or force "shared_shape"/
-        "stratified" (per-cell-type curves). "auto" and "stratified" trade
-        the pooled default's stability for flexibility: each cell type's own
-        model is fit to far fewer downsampling replicates than the pooled
-        fit, so it is noisier, and "auto"'s per-dataset test can itself
-        false-positive into shared_shape/stratified on a single noisy
-        comparison -- which is why pooling is not auto-selected by default.
-        test_pooling()'s result is always computed and returned as
-        `pooling_test` regardless of this argument.
+    pooling : "shared_shape" (default: a single DEGs~n curve *shape* fit
+        across all cell types plus a per-cell-type offset, i.e.
+        ``degs ~ cr(n) + cell_type``), "auto" (run test_pooling() and use
+        its recommendation), "stratified" (fully separate curve per cell
+        type), or "pooled" (``degs ~ cr(n)`` with no cell-type term).
+        "shared_shape" keeps the stability of pooling every cell type's
+        replicates into one curve while still letting cell types differ in
+        level. "pooled" has no cell-type term, so it returns the *same*
+        burden for every cell type by construction; it is kept only for
+        inspecting the shared curve and emits a warning. Under "auto", a
+        "pooled" recommendation is predicted with the shared_shape model
+        instead, so burden stays cell-type-specific; `pooling_used` records
+        the model actually used. test_pooling()'s result is always computed
+        and returned as `pooling_test` regardless of this argument.
     adaptive_alpha : if True (default), calibrate alpha(n) per cell type via
         calibrate_alpha() (empirical FDR calibration against label-permuted
         null runs) and use it in place of `alpha` when counting DEGs for the
@@ -122,7 +124,7 @@ def calculate_burden(
     BurdenResult
     """
     if pooling not in ("pooled", "auto", "shared_shape", "stratified"):
-        raise ValueError('pooling must be one of "pooled", "auto", "shared_shape", "stratified"')
+        raise ValueError('pooling must be one of "shared_shape", "auto", "stratified", "pooled"')
     if model_type not in ("auto", "spline", "linear"):
         raise ValueError('model_type must be one of "auto", "spline", "linear"')
     if adaptive_alpha and k_permute <= 0:
@@ -164,6 +166,16 @@ def calculate_burden(
         combined["n"], combined["degs"], combined["cell_type"], weights=combined["weight"], sig_level=sig_level
     )
     pooling_used = pooling_test["recommendation"] if pooling == "auto" else pooling
+    if pooling == "auto" and pooling_used == "pooled":
+        # A model with no cell-type term predicts the same burden for every
+        # cell type; use the shared-shape model so burden stays cell-type-specific.
+        pooling_used = "shared_shape"
+    if pooling_used == "pooled" and len(cell_types) > 1:
+        warnings.warn(
+            'pooling="pooled" fits no cell-type term, so burden is identical for '
+            'every cell type by construction. Use pooling="shared_shape" (default) '
+            "to compare cell types."
+        )
 
     if reference_n is None:
         n_full_per_ct = {ct: downsampling[ct]["downsampled"]["n"].max() for ct in cell_types}

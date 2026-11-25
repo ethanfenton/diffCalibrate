@@ -52,3 +52,25 @@ test_that("reference_n defaults to the median full cell count across cell types"
   )
   expect_equal(unique(res$burden$reference_n), 60)
 })
+
+test_that("default pooling gives cell-type-specific burden; forced pooled warns", {
+  data <- list(
+    a = sim_cell_type(30, n_genes = 60, n_de = 5, seed = 40),
+    b = sim_cell_type(90, n_genes = 60, n_de = 25, effect = 2.5, seed = 41)
+  )
+  args <- list(data, de_fun = "wilcoxon", adaptive_alpha = FALSE,
+               grid_args = list(n_min = 10, n_points = 3),
+               k = 2, k_permute = 0, seed = 103)
+  res <- do.call(calculate_burden, args)
+  expect_equal(res$pooling_used, "shared_shape")
+  expect_false(isTRUE(all.equal(res$burden$burden[1], res$burden$burden[2])))
+
+  expect_warning(
+    res_p <- do.call(calculate_burden, c(args, pooling = "pooled")),
+    "identical for every cell type"
+  )
+  expect_equal(res_p$burden$burden[1], res_p$burden$burden[2])
+
+  res_a <- do.call(calculate_burden, c(args, pooling = "auto"))
+  expect_true(res_a$pooling_used %in% c("shared_shape", "stratified"))
+})

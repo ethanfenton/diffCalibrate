@@ -55,28 +55,27 @@ starting points, not because alternatives were ruled out.
    cell types are sparse: cell type as a random effect (`s(cell_type,
    bs="re")` in mgcv) — partial pooling instead of an all-or-nothing choice.
 
-   **Default is `pooled`, not `auto`.** It is a reasonable working
-   assumption that cell count affects detected DEG count in a broadly
-   similar way regardless of cell type (same DE method, same underlying
-   statistical-power mechanics), so pooling all cell types' downsampling
-   replicates into one DEGs~n curve by default is both defensible and gives
-   the model far more data per fit than any single cell type could supply
-   alone. Letting `pooling = "auto"` pick per-dataset via the LRT sounds
-   more rigorous but is not the safer default: with the modest replicate
-   counts (`k`) typical of this pipeline, a single noisy LRT can
-   false-positive into recommending `shared_shape`/`stratified` even when
-   the true relationship is shared across cell types — this was observed
-   directly during development (a `test_pooling()` unit test using
-   identically-generated data for two "cell types" intermittently
-   recommended `shared_shape` depending on the random draw). `stratified`
-   also compounds with the extrapolation caveat above: a per-cell-type
-   model fit to few points is exactly the situation where predicting at a
-   reference n outside that cell type's own range is least trustworthy.
-   `pooling = "auto"`/`"stratified"` remain available for users who want
-   per-cell-type flexibility and are prepared for the added noise;
-   `pooling_test` is always computed and returned regardless of which mode
-   is used, so `"auto"`'s recommendation is visible even under the
-   `"pooled"` default.
+   **Default is `shared_shape`, not `pooled` or `auto`.** It is a reasonable
+   working assumption that cell count affects detected DEG count in a
+   broadly similar way regardless of cell type (same DE method, same
+   underlying statistical-power mechanics), so the curve *shape* is fit once
+   across all cell types' downsampling replicates, giving the model far
+   more data than any single cell type could supply alone. A per-cell-type
+   offset is still required: the fully `pooled` model `degs ~ s(n)` has no
+   cell-type term, so it predicts an identical burden for every cell type
+   at the reference n, which defeats the purpose of comparing them. (The
+   0.1.0 release defaulted to `pooled` and had exactly this bug.) `pooled`
+   is still accepted but warns; under `pooling = "auto"`, a `pooled`
+   recommendation is predicted with the `shared_shape` model instead.
+   `auto` is not the default because, with the modest replicate counts
+   (`k`) typical of this pipeline, a single noisy LRT can false-positive
+   into recommending `stratified` even when the true relationship is
+   shared (observed during development with identically-generated data for
+   two "cell types"). `stratified` also compounds with the extrapolation
+   caveat above: a per-cell-type model fit to few points is exactly the
+   situation where predicting at a reference n outside that cell type's
+   own range is least trustworthy. `pooling_test` is always computed and
+   returned regardless of which mode is used.
 7. **Burden metric.** Burden for a cell type = model-predicted DEG count at a
    *reference* cell count (default: median cells-per-treatment-arm across all
    cell types in the dataset; user-overridable), evaluated on the cell type's
@@ -133,7 +132,7 @@ what would happen at 150.
   normalized (e.g., by number of genes tested in that cell type, since gene
   detection also scales with cell count).
 - ~~Python port~~: done, see `python/`. Mirrors the R API and defaults
-  (quasi-Poisson identity-link count model, pooled-by-default, empirical FDR
+  (quasi-Poisson identity-link count model, shared_shape-by-default, empirical FDR
   calibration). Two intentional implementation differences, documented in
   `python/README.md`: splines are `patsy`'s unpenalized natural cubic
   regression-spline basis (`cr()`) rather than `mgcv`'s penalized smooths,

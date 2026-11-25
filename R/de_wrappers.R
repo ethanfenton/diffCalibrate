@@ -22,6 +22,15 @@ NULL
   group
 }
 
+# Give unnamed rows stable gene names so results can be matched back after
+# all-zero genes are dropped (otherwise edgeR/DESeq2 renumber the subset).
+.ensure_gene_names <- function(counts) {
+  if (is.null(rownames(counts))) {
+    rownames(counts) <- paste0("gene", seq_len(nrow(counts)))
+  }
+  counts
+}
+
 #' Wilcoxon rank-sum DE
 #'
 #' Gene-by-gene Wilcoxon rank-sum test on (by default) log1p-CPM normalized
@@ -85,6 +94,7 @@ de_edger <- function(counts, group, ...) {
          call. = FALSE)
   }
   group <- .check_two_groups(group)
+  counts <- .ensure_gene_names(counts)
   keep_genes <- rowSums(counts) > 0
   y <- edgeR::DGEList(counts = counts[keep_genes, , drop = FALSE], group = group)
   y <- edgeR::calcNormFactors(y)
@@ -103,7 +113,9 @@ de_edger <- function(counts, group, ...) {
   )
   m <- match(rownames(tab), out$gene)
   out$pval[m] <- tab$PValue
-  out$padj[m] <- stats::p.adjust(out$pval, method = "BH")
+  # BH over the tested (non-all-zero) genes only, aligned to those genes;
+  # dropped genes keep padj = 1.
+  out$padj[m] <- stats::p.adjust(tab$PValue, method = "BH")
   out$logFC[m] <- tab$logFC
   out
 }
@@ -126,6 +138,7 @@ de_deseq2 <- function(counts, group, ...) {
          call. = FALSE)
   }
   group <- .check_two_groups(group)
+  counts <- .ensure_gene_names(counts)
   keep_genes <- rowSums(counts) > 0
   cts <- round(counts[keep_genes, , drop = FALSE])
   coldata <- data.frame(group = group)
@@ -143,7 +156,9 @@ de_deseq2 <- function(counts, group, ...) {
   )
   m <- match(rownames(res), out$gene)
   out$pval[m] <- ifelse(is.na(res$pvalue), 1, res$pvalue)
-  out$padj[m] <- stats::p.adjust(out$pval, method = "BH")
+  # BH over the tested (non-all-zero) genes only, aligned to those genes;
+  # dropped genes keep padj = 1.
+  out$padj[m] <- stats::p.adjust(out$pval[m], method = "BH")
   out$logFC[m] <- ifelse(is.na(res$log2FoldChange), 0, res$log2FoldChange)
   out
 }

@@ -8,7 +8,7 @@ calculate_burden(
   data,
   de_fun,
   model_type = c("auto", "spline", "linear"),
-  pooling = c("pooled", "auto", "shared_shape", "stratified"),
+  pooling = c("shared_shape", "auto", "stratified", "pooled"),
   adaptive_alpha = TRUE,
   alpha = 0.05,
   reference_n = NULL,
@@ -34,21 +34,23 @@ user function following the \link{de_backends} contract.}
 \item{model_type}{One of \code{"auto"}, \code{"spline"}, \code{"linear"} — see
 \code{\link[=fit_deg_model]{fit_deg_model()}}.}
 
-\item{pooling}{One of \code{"pooled"} (default: a single DEGs~n curve fit
-across all cell types, on the assumption that cell count affects
-detected DEG count similarly regardless of cell type), \code{"auto"} (run
-\code{\link[=test_pooling]{test_pooling()}} and use its LRT-based recommendation instead), or
-force \code{"shared_shape"}/\code{"stratified"} (per-cell-type curves). \code{"auto"}
-and \code{"stratified"} trade the pooled default's stability for
-flexibility: each cell type's own model is fit to far fewer
-downsampling replicates than the pooled fit, so it is noisier, and
-\code{"auto"}'s per-dataset LRT can itself false-positive into
-\code{shared_shape}/\code{stratified} on a single noisy comparison (observed
-during development, see \code{docs/DESIGN.md}) — which is why pooling is
-not auto-selected by default. \code{\link[=test_pooling]{test_pooling()}}'s result is always
-computed and returned as \code{pooling_test} regardless of this argument, so
-you can inspect what \code{"auto"} \emph{would} have chosen without switching to
-it.}
+\item{pooling}{One of \code{"shared_shape"} (default: a single DEGs~n curve
+\emph{shape} fit across all cell types, plus a per-cell-type offset, i.e.
+\code{degs ~ s(n) + cell_type}), \code{"auto"} (run \code{\link[=test_pooling]{test_pooling()}} and use its
+LRT-based recommendation), \code{"stratified"} (fully separate curve per
+cell type), or \code{"pooled"} (\code{degs ~ s(n)} with no cell-type term).
+\code{"shared_shape"} keeps the stability of pooling every cell type's
+downsampling replicates into one curve while still letting cell types
+differ in level, which is what burden is meant to compare.
+\code{"pooled"} has no cell-type term, so it returns the \emph{same} burden for
+every cell type by construction; it is kept only for inspecting the
+shared curve and emits a warning. Under \code{"auto"}, a \code{"pooled"}
+recommendation (no significant cell-type offset) is predicted with the
+\code{shared_shape} model instead, so burden stays cell-type-specific;
+\code{pooling_used} records the model actually used. \code{"stratified"} fits
+each cell type to far fewer replicates, so it is noisier.
+\code{\link[=test_pooling]{test_pooling()}}'s result is always computed and returned as
+\code{pooling_test} regardless of this argument.}
 
 \item{adaptive_alpha}{If \code{TRUE} (default), calibrate alpha(n) per cell
 type via \code{\link[=calibrate_alpha]{calibrate_alpha()}} (empirical FDR calibration against
