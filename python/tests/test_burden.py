@@ -100,3 +100,23 @@ def test_adaptive_alpha_requires_k_permute(data):
 def test_adaptive_alpha_false_skips_alpha_curves(data):
     res = _run(data, adaptive_alpha=False)
     assert res.alpha_curves is None
+
+
+def test_adaptive_alpha_off_by_default_and_skips_permutations(data):
+    res = calculate_burden(data, de_fun="wilcoxon", k=2, grid_args={"n_points": 3}, seed=5)
+    assert res.alpha_curves is None
+    assert res.downsampling["small"]["permuted"] is None
+
+
+def test_adaptive_alpha_end_to_end_tracks_fixed_alpha(data):
+    # The simulated p-values are roughly calibrated, so calibrated DEG counts
+    # should stay close to the fixed-alpha counts. (<= 0.2.0 calibrated on
+    # null padj, got alpha ~0.75-0.95, and called nearly every gene.)
+    res = _run(data, adaptive_alpha=True)
+    assert set(res.alpha_curves) == set(data)
+    for ct in data:
+        assert (res.alpha_curves[ct]["null_quantile"] < 0.3).all()
+        ds = res.downsampling[ct]["downsampled"]
+        assert (ds["alpha_used"] == 0.05).all()
+        fixed = np.array([(r["padj"] < 0.05).sum() for r in ds["de_res"]])
+        assert np.all(np.abs(ds["n_degs"].to_numpy() - fixed) <= np.maximum(10, 0.25 * fixed))

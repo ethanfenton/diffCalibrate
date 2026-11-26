@@ -2,7 +2,7 @@
 % Please edit documentation in R/adaptive_alpha.R
 \name{predict_alpha}
 \alias{predict_alpha}
-\title{Interpolate a calibrated alpha(n) curve to arbitrary cell counts}
+\title{Interpolate the calibration quantile to arbitrary cell counts}
 \usage{
 predict_alpha(alpha_curve, n)
 }
@@ -12,9 +12,11 @@ predict_alpha(alpha_curve, n)
 \item{n}{Vector of cell counts to evaluate at.}
 }
 \value{
-Numeric vector of \code{alpha} values, same length as \code{n}.
+Numeric vector, same length as \code{n}.
 }
 \description{
-Linear interpolation on the \code{\link[=calibrate_alpha]{calibrate_alpha()}} grid, with endpoints held
-constant outside the observed range.
+Linear interpolation of \code{null_quantile} from \code{\link[=calibrate_alpha]{calibrate_alpha()}}, with
+endpoints held constant outside the observed range. Diagnostic only:
+shows how anti-conservative (\verb{< target_fpr}) or conservative the DE
+method is at a given \code{n}. It is not a significance threshold.
 }

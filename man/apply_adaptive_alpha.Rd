@@ -2,24 +2,28 @@
 % Please edit documentation in R/adaptive_alpha.R
 \name{apply_adaptive_alpha}
 \alias{apply_adaptive_alpha}
-\title{Recompute DEG counts using a calibrated alpha(n) instead of a fixed alpha}
+\title{Recompute DEG counts from null-calibrated p-values}
 \usage{
-apply_adaptive_alpha(downsampling_result, alpha_curve)
+apply_adaptive_alpha(downsampling_result, alpha_curve, alpha = 0.05)
 }
 \arguments{
 \item{downsampling_result}{A single cell type's result from
 \code{\link[=run_downsampling]{run_downsampling()}}.}
 
 \item{alpha_curve}{Output of \code{\link[=calibrate_alpha]{calibrate_alpha()}} for the same cell type.}
+
+\item{alpha}{FDR threshold applied to the calibrated, BH-adjusted
+p-values. Default 0.05.}
 }
 \value{
 The \code{downsampled} \code{data.frame} from \code{downsampling_result}, with
-\code{n_degs} replaced by counts at the calibrated alpha, and a new column
-\code{alpha_used}.
+\code{n_degs} replaced by calibrated counts, plus columns \code{alpha_used}
+(= \code{alpha}) and \code{null_quantile} (the calibration quantile used).
 }
 \description{
-Reuses the full DE result tables already stored in a \code{\link[=run_downsampling]{run_downsampling()}}
-result (\code{downsampled$de_res}), so no DE refitting is needed — just
-recounts \code{padj < alpha(n)} with a per-row, n-specific alpha from
-\code{\link[=calibrate_alpha]{calibrate_alpha()}}/\code{\link[=predict_alpha]{predict_alpha()}}.
+Reuses the DE result tables already stored in a \code{\link[=run_downsampling]{run_downsampling()}}
+result (\code{downsampled$de_res}), so no DE refitting is needed. For each
+replicate, raw p-values are calibrated against the null p-values from
+the nearest grid \code{n} in \code{alpha_curve} (see \code{\link[=calibrate_alpha]{calibrate_alpha()}}),
+BH-adjusted, and genes with calibrated \code{padj < alpha} are counted.
 }

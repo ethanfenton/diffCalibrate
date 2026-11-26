@@ -6,7 +6,7 @@ test_that("calculate_burden runs end-to-end and returns one row per cell type", 
   res <- calculate_burden(
     data, de_fun = "wilcoxon",
     grid_args = list(n_min = 12, n_points = 3),
-    k = 2, k_permute = 2, seed = 100
+    k = 2, k_permute = 2, seed = 100, adaptive_alpha = TRUE
   )
   expect_s3_class(res, "burden_result")
   expect_equal(nrow(res$burden), 2)
@@ -73,4 +73,13 @@ test_that("default pooling gives cell-type-specific burden; forced pooled warns"
 
   res_a <- do.call(calculate_burden, c(args, pooling = "auto"))
   expect_true(res_a$pooling_used %in% c("shared_shape", "stratified"))
+})
+
+test_that("adaptive_alpha is off by default and skips permuted runs", {
+  data <- list(a = sim_cell_type(30, n_genes = 30, seed = 42),
+               b = sim_cell_type(40, n_genes = 30, seed = 43))
+  res <- calculate_burden(data, de_fun = "wilcoxon",
+                          grid_args = list(n_min = 10, n_points = 3), k = 2, seed = 104)
+  expect_null(res$alpha_curves)
+  expect_null(res$downsampling$a$permuted)
 })

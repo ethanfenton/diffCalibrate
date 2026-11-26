@@ -84,14 +84,26 @@ starting points, not because alternatives were ruled out.
    model fit (pooled or cell-type-specific, per step 6) to extrapolate/
    interpolate from its actual (n, DEG) observations. This is the number
    reported to the user, together with a CI/SE from the model.
-8. **Adaptive alpha (starting approach: empirical FDR calibration).** Add a
+8. **Adaptive alpha (empirical null calibration of raw p-values).** Add a
    permutation arm to the downsampling loop: at each n, also run DE on
-   label-shuffled data to get a null distribution of DEG counts (or p-values)
-   at that sample size. Choose alpha(n) such that the expected false-positive
-   count (or expected FDR) implied by that null stays constant across n,
-   rather than using a fixed alpha = 0.05 everywhere. Reuses the same
-   downsampling infrastructure (just adds `permute = TRUE` runs). Output is an
-   alpha(n) curve per cell type/method, plus DEG counts computed under it.
+   label-shuffled data (`k_permute` replicates). Their *raw* p-values are an
+   empirical null at that sample size. Each observed raw p-value is mapped
+   to a calibrated p-value, the fraction of null p-values at or below it
+   (`F0(p)`), with a linear tail `p * target_fpr / q` below the
+   `target_fpr` null quantile `q` so very small p-values don't all tie at
+   `1 / N`. BH is then applied to the calibrated p-values and genes with
+   calibrated `padj < alpha` are counted. The FDR meaning of `alpha` is
+   unchanged across n; only miscalibration of the DE method's p-values is
+   corrected. For well-calibrated p-values, `q ~ target_fpr` and calibrated
+   counts match fixed-alpha counts.
+
+   Calibration must use raw p-values. Versions <= 0.2.0 took the
+   `target_fpr` quantile of the null *BH-adjusted* p-values as the cutoff;
+   under the null nearly all adjusted p-values sit near 1, so the cutoff
+   came out around 0.75-0.95 and nearly every gene was called a DEG.
+   `adaptive_alpha` is off by default (fixed alpha) until the corrected
+   calibration has been validated on real data; with it off, `k_permute`
+   defaults to 0 so the permuted runs are skipped.
 
 ## Alternatives considered for adaptive alpha (not yet implemented)
 
@@ -132,8 +144,8 @@ what would happen at 150.
   normalized (e.g., by number of genes tested in that cell type, since gene
   detection also scales with cell count).
 - ~~Python port~~: done, see `python/`. Mirrors the R API and defaults
-  (quasi-Poisson identity-link count model, shared_shape-by-default, empirical FDR
-  calibration). Two intentional implementation differences, documented in
+  (quasi-Poisson identity-link count model, shared_shape-by-default, optional
+  empirical null calibration). Two intentional implementation differences, documented in
   `python/README.md`: splines are `patsy`'s unpenalized natural cubic
   regression-spline basis (`cr()`) rather than `mgcv`'s penalized smooths,
   and nested-model comparisons use `statsmodels` GLM with `scale="X2"` and a

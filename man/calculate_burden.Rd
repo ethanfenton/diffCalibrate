@@ -9,7 +9,7 @@ calculate_burden(
   de_fun,
   model_type = c("auto", "spline", "linear"),
   pooling = c("shared_shape", "auto", "stratified", "pooled"),
-  adaptive_alpha = TRUE,
+  adaptive_alpha = FALSE,
   alpha = 0.05,
   reference_n = NULL,
   min_concordance = NULL,
@@ -18,7 +18,7 @@ calculate_burden(
   sig_level = 0.05,
   grid_args = list(),
   k = 5,
-  k_permute = 5,
+  k_permute = if (adaptive_alpha) 5 else 0,
   seed = 1,
   ...
 )
@@ -52,14 +52,14 @@ each cell type to far fewer replicates, so it is noisier.
 \code{\link[=test_pooling]{test_pooling()}}'s result is always computed and returned as
 \code{pooling_test} regardless of this argument.}
 
-\item{adaptive_alpha}{If \code{TRUE} (default), calibrate alpha(n) per cell
-type via \code{\link[=calibrate_alpha]{calibrate_alpha()}} (empirical FDR calibration against
-label-permuted null runs) and use it in place of \code{alpha} when counting
-DEGs for the model. Requires \code{k_permute > 0}.}
+\item{adaptive_alpha}{If \code{TRUE}, calibrate each cell type's raw DE
+p-values against its label-permuted null runs at each \code{n} (see
+\code{\link[=calibrate_alpha]{calibrate_alpha()}}) before BH adjustment, and count calibrated
+\code{padj < alpha} as DEGs for the model. Requires \code{k_permute > 0}.
+Default \code{FALSE} (fixed \code{alpha} on the DE method's own \code{padj}).}
 
-\item{alpha}{Nominal significance threshold. Used directly if
-\code{adaptive_alpha = FALSE}; used as \code{target_fpr} for \code{\link[=calibrate_alpha]{calibrate_alpha()}}
-otherwise.}
+\item{alpha}{FDR threshold for counting DEGs, applied to the DE method's
+\code{padj} or, with \code{adaptive_alpha = TRUE}, to the calibrated \code{padj}.}
 
 \item{reference_n}{Cell count at which burden is predicted. Default
 \code{NULL} uses the median, across cell types, of each cell type's full
@@ -81,7 +81,9 @@ for soft down-weighting instead/in addition).}
 \item{sig_level}{Significance threshold for the nonlinearity and pooling
 LRTs.}
 
-\item{grid_args, k, k_permute, seed}{Passed to \code{\link[=run_downsampling]{run_downsampling()}}.}
+\item{grid_args, k, k_permute, seed}{Passed to \code{\link[=run_downsampling]{run_downsampling()}}.
+\code{k_permute} defaults to 5 when \code{adaptive_alpha = TRUE}, else 0 (the
+permuted runs are only used for calibration).}
 
 \item{...}{Passed to \code{de_fun}.}
 }

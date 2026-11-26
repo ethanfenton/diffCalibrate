@@ -56,7 +56,7 @@ def calculate_burden(
     de_fun: Union[str, callable],
     model_type: str = "auto",
     pooling: str = "shared_shape",
-    adaptive_alpha: bool = True,
+    adaptive_alpha: bool = False,
     alpha: float = 0.05,
     reference_n: Optional[float] = None,
     min_concordance: Optional[float] = None,
@@ -65,7 +65,7 @@ def calculate_burden(
     sig_level: float = 0.05,
     grid_args: Optional[dict] = None,
     k: int = 5,
-    k_permute: int = 5,
+    k_permute: Optional[int] = None,
     seed: Optional[int] = 1,
     **kwargs,
 ) -> BurdenResult:
@@ -99,13 +99,13 @@ def calculate_burden(
         instead, so burden stays cell-type-specific; `pooling_used` records
         the model actually used. test_pooling()'s result is always computed
         and returned as `pooling_test` regardless of this argument.
-    adaptive_alpha : if True (default), calibrate alpha(n) per cell type via
-        calibrate_alpha() (empirical FDR calibration against label-permuted
-        null runs) and use it in place of `alpha` when counting DEGs for the
-        model. Requires k_permute > 0.
-    alpha : nominal significance threshold. Used directly if
-        adaptive_alpha=False; used as target_fpr for calibrate_alpha()
-        otherwise.
+    adaptive_alpha : if True, calibrate each cell type's raw DE p-values
+        against its label-permuted null runs at each n (see
+        calibrate_alpha()) before BH adjustment, and count calibrated
+        padj < alpha as DEGs for the model. Requires k_permute > 0.
+        Default False (fixed alpha on the DE method's own padj).
+    alpha : FDR threshold for counting DEGs, applied to the DE method's padj
+        or, with adaptive_alpha=True, to the calibrated padj.
     reference_n : cell count at which burden is predicted. Default None
         uses the median, across cell types, of each cell type's full
         per-group cell count.
@@ -116,7 +116,9 @@ def calculate_burden(
         min_concordance and for weighting. Default "cat_overlap".
     weight_floor : minimum weight assigned to any retained replicate.
     sig_level : significance threshold for the nonlinearity and pooling tests.
-    grid_args, k, k_permute, seed : passed to run_downsampling().
+    grid_args, k, k_permute, seed : passed to run_downsampling(). k_permute
+        defaults to 5 when adaptive_alpha=True, else 0 (the permuted runs are
+        only used for calibration).
     **kwargs : passed to de_fun.
 
     Returns
@@ -127,6 +129,8 @@ def calculate_burden(
         raise ValueError('pooling must be one of "shared_shape", "auto", "stratified", "pooled"')
     if model_type not in ("auto", "spline", "linear"):
         raise ValueError('model_type must be one of "auto", "spline", "linear"')
+    if k_permute is None:
+        k_permute = 5 if adaptive_alpha else 0
     if adaptive_alpha and k_permute <= 0:
         raise ValueError("adaptive_alpha=True requires k_permute > 0.")
 
@@ -140,9 +144,9 @@ def calculate_burden(
 
     alpha_curves = None
     if adaptive_alpha:
-        alpha_curves = {ct: calibrate_alpha(downsampling[ct], target_fpr=alpha) for ct in cell_types}
+        alpha_curves = {ct: calibrate_alpha(downsampling[ct]) for ct in cell_types}
         for ct in cell_types:
-            downsampling[ct]["downsampled"] = apply_adaptive_alpha(downsampling[ct], alpha_curves[ct])
+            downsampling[ct]["downsampled"] = apply_adaptive_alpha(downsampling[ct], alpha_curves[ct], alpha=alpha)
 
     combined_rows = []
     for ct in cell_types:

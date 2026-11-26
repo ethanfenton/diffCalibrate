@@ -32,13 +32,13 @@
 #'   each cell type to far fewer replicates, so it is noisier.
 #'   [test_pooling()]'s result is always computed and returned as
 #'   `pooling_test` regardless of this argument.
-#' @param adaptive_alpha If `TRUE` (default), calibrate alpha(n) per cell
-#'   type via [calibrate_alpha()] (empirical FDR calibration against
-#'   label-permuted null runs) and use it in place of `alpha` when counting
-#'   DEGs for the model. Requires `k_permute > 0`.
-#' @param alpha Nominal significance threshold. Used directly if
-#'   `adaptive_alpha = FALSE`; used as `target_fpr` for [calibrate_alpha()]
-#'   otherwise.
+#' @param adaptive_alpha If `TRUE`, calibrate each cell type's raw DE
+#'   p-values against its label-permuted null runs at each `n` (see
+#'   [calibrate_alpha()]) before BH adjustment, and count calibrated
+#'   `padj < alpha` as DEGs for the model. Requires `k_permute > 0`.
+#'   Default `FALSE` (fixed `alpha` on the DE method's own `padj`).
+#' @param alpha FDR threshold for counting DEGs, applied to the DE method's
+#'   `padj` or, with `adaptive_alpha = TRUE`, to the calibrated `padj`.
 #' @param reference_n Cell count at which burden is predicted. Default
 #'   `NULL` uses the median, across cell types, of each cell type's full
 #'   per-group cell count (`min(table(group))`) — i.e. "a typical cell
@@ -55,6 +55,8 @@
 #' @param sig_level Significance threshold for the nonlinearity and pooling
 #'   LRTs.
 #' @param grid_args,k,k_permute,seed Passed to [run_downsampling()].
+#'   `k_permute` defaults to 5 when `adaptive_alpha = TRUE`, else 0 (the
+#'   permuted runs are only used for calibration).
 #' @param ... Passed to `de_fun`.
 #' @return A `burden_result` object (list) with:
 #'   \item{burden}{`data.frame(cell_type, n_full, reference_n, burden,
@@ -69,14 +71,15 @@
 calculate_burden <- function(data, de_fun,
                               model_type = c("auto", "spline", "linear"),
                               pooling = c("shared_shape", "auto", "stratified", "pooled"),
-                              adaptive_alpha = TRUE,
+                              adaptive_alpha = FALSE,
                               alpha = 0.05,
                               reference_n = NULL,
                               min_concordance = NULL,
                               concordance_metric = "cat_overlap",
                               weight_floor = 0.1,
                               sig_level = 0.05,
-                              grid_args = list(), k = 5, k_permute = 5, seed = 1,
+                              grid_args = list(), k = 5,
+                              k_permute = if (adaptive_alpha) 5 else 0, seed = 1,
                               ...) {
   model_type <- match.arg(model_type)
   pooling <- match.arg(pooling)
@@ -98,11 +101,11 @@ calculate_burden <- function(data, de_fun,
   alpha_curves <- NULL
   if (adaptive_alpha) {
     alpha_curves <- stats::setNames(
-      lapply(downsampling, calibrate_alpha, target_fpr = alpha), cell_types
+      lapply(downsampling, calibrate_alpha), cell_types
     )
     downsampling <- stats::setNames(lapply(cell_types, function(ct) {
       ds <- downsampling[[ct]]
-      ds$downsampled <- apply_adaptive_alpha(ds, alpha_curves[[ct]])
+      ds$downsampled <- apply_adaptive_alpha(ds, alpha_curves[[ct]], alpha = alpha)
       ds
     }), cell_types)
   }

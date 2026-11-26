@@ -2,7 +2,7 @@
 % Please edit documentation in R/adaptive_alpha.R
 \name{calibrate_alpha}
 \alias{calibrate_alpha}
-\title{Empirical FDR-calibrated significance threshold as a function of n}
+\title{Empirical null calibration of DE p-values as a function of n}
 \usage{
 calibrate_alpha(downsampling_result, target_fpr = 0.05, cap_at_target = FALSE)
 }
@@ -10,37 +10,45 @@ calibrate_alpha(downsampling_result, target_fpr = 0.05, cap_at_target = FALSE)
 \item{downsampling_result}{A single cell type's result from
 \code{\link[=run_downsampling]{run_downsampling()}}, run with \code{k_permute > 0}.}
 
-\item{target_fpr}{Target false-positive rate to hold constant across n.
-Default 0.05 (matches the conventional fixed-alpha default, so
-\code{alpha(n)} should be read as "what alpha achieves the same effective
-FPR as a nominal 0.05 would at the full sample size").}
+\item{target_fpr}{Null quantile at which the empirical CDF hands over to
+the linear tail (see Details). Default 0.05.}
 
-\item{cap_at_target}{If \code{TRUE}, never allow \code{alpha(n) > target_fpr}
-(i.e. only correct for anti-conservative bias, never spend extra power
-on conservative bias). Default \code{FALSE}.}
+\item{cap_at_target}{If \code{TRUE}, calibration may only make p-values
+larger (correct anti-conservative bias, never spend extra power on
+conservative bias). Default \code{FALSE}.}
 }
 \value{
-\code{data.frame(n, alpha, n_null_tests)}, one row per grid point,
-\code{n_null_tests} giving the pooled number of null (gene x permutation
-replicate) tests the estimate at that \code{n} is based on (useful for
-judging how noisy \code{alpha(n)} is at sparse grid points).
+\code{data.frame(n, null_quantile, n_null_tests, null_p)}, one row per
+grid point. \code{null_quantile} is the \code{target_fpr} quantile of the null
+raw p-values (below \code{target_fpr} means anti-conservative at that \code{n});
+\code{n_null_tests} is the number of null (gene x permutation replicate)
+p-values; \code{null_p} is a list column holding them. \code{target_fpr} and
+\code{cap_at_target} are stored as attributes.
 }
 \description{
 At small cell counts, DE p-values can be miscalibrated (typically
 anti-conservative), so a fixed \code{padj < 0.05} cutoff does not carry the
-same false-positive rate at every sample size. This calibrates a
-per-\code{n} threshold \code{alpha(n)} from the label-permuted arm of
-\code{\link[=run_downsampling]{run_downsampling()}} (\code{k_permute > 0}): permuted labels give a DE run
-with no true group difference, so its \code{padj} distribution is an empirical
-null. \code{alpha(n)} is set to the empirical quantile of that null \code{padj}
-distribution at \code{target_fpr}, i.e. the threshold that would call a
-\code{target_fpr} fraction of genes "significant" under the null at that \code{n}.
-Where the method is anti-conservative at small n, this yields
-\code{alpha(n) < target_fpr} (a stricter cutoff, correcting for excess false
-positives); where it is conservative, \code{alpha(n) > target_fpr} is allowed
-(recovering power) unless \code{cap_at_target = TRUE}.
+same false-discovery rate at every sample size. This calibrates \emph{raw}
+p-values against the label-permuted arm of \code{\link[=run_downsampling]{run_downsampling()}}
+(\code{k_permute > 0}): permuted labels give DE runs with no true group
+difference, so their raw p-values form an empirical null at each \code{n}.
 }
 \details{
-See \code{docs/DESIGN.md} for alternative calibration strategies (q-values,
-power-matching) not yet implemented.
+\code{\link[=apply_adaptive_alpha]{apply_adaptive_alpha()}} then maps each observed raw p-value to a
+calibrated p-value (the fraction of null p-values at or below it; see
+Details), applies BH to the calibrated p-values, and counts genes with
+calibrated \code{padj < alpha}. The FDR meaning of \code{alpha} is therefore kept
+at every \code{n}; only the p-values feeding BH are corrected.
+
+Calibration is done on raw p-values, not BH-adjusted ones: under the
+null nearly all adjusted p-values sit near 1, so quantiles of null
+\code{padj} are not a usable significance threshold (versions <= 0.2.0 did
+this and produced thresholds around 0.75-0.95).
+
+For an observed raw p-value \code{p} and null p-values with
+empirical CDF \code{F0}, the calibrated p-value is \code{F0(p)} when \code{p} is at or
+above \code{q}, the \code{target_fpr} quantile of the null, and \code{p * target_fpr / q} below it. The linear tail avoids the resolution floor of an
+empirical CDF (otherwise every very small p would tie at \code{1 / N}) and
+is continuous and monotone with \code{F0} at \code{q}. For well-calibrated
+p-values \code{q ~ target_fpr}, so calibrated p ~ raw p.
 }

@@ -42,13 +42,13 @@ res <- calculate_burden(
   de_fun = "wilcoxon",       # or "edger", "deseq2", or your own function
   model_type = "auto",       # "auto" | "spline" | "linear"
   pooling = "shared_shape",  # "shared_shape" | "auto" | "stratified" | "pooled"
-  adaptive_alpha = TRUE,     # empirical FDR-calibrated alpha(n) per cell type
+  adaptive_alpha = FALSE,    # TRUE: calibrate raw p-values against permuted nulls
   alpha = 0.05
 )
 
 res$burden          # cell_type, n_full, reference_n, burden, burden_se, extrapolated
 res$pooling_test     # LRTs behind the pooled/shared_shape/stratified recommendation
-res$alpha_curves      # per-cell-type alpha(n) from empirical FDR calibration
+res$alpha_curves      # per-cell-type null calibration (adaptive_alpha = TRUE only)
 res$concordance        # per-cell-type concordance of downsampled vs full DE calls
 ```
 
